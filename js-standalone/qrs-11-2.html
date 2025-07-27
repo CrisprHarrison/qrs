@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR Code Streaming Generator</title>
+  <style>
+    /* Basic reset and styling */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      line-height: 1.6;
+      color: #e0e0e0;
+      background-color: #121212;
+      padding: 20px;
+      height: 100vh;
+      overflow: hidden;
+    }
+    
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #f0f0f0;
+    }
+    
+    .main-layout {
+      display: flex;
+      flex-direction: row;
+      height: calc(100vh - 80px);
+    }
+    
+    /* Responsive layout */
+    @media (max-width: 960px) {
+      .main-layout {
+        flex-direction: column;
+      }
+      
+      .container {
+        width: 100% !important;
+        min-width: 100% !important;
+        margin-bottom: 20px;
+      }
+      
+      .qr-display {
+        width: 100% !important;
+        height: auto !important;
+      }
+    }
+    
+    .container {
+      width: 20%;
+      min-width: 250px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow-y: auto;
+      padding-right: 20px;
+    }
+    
+    .control-item {
+      display: flex;
+      flex-direction: column;
+      background-color: #1e1e1e;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 10px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+    
+    .control-item label {
+      color: #ccc;
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+    
+    #slice-size {
+      width: 80px;
+      padding: 8px;
+      border: 1px solid #333;
+      border-radius: 4px;
+      background-color: #2c2c2c;
+      color: #e0e0e0;
+      text-align: center;
+    }
+    
+    #fps-input {
+      width: 60px;
+      padding: 8px;
+      border: 1px solid #333;
+      border-radius: 4px;
+      background-color: #2c2c2c;
+      color: #e0e0e0;
+      text-align: center;
+    }
+    
+    .fps-control {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .fps-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .fps-row {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .fps-button {
+      width: 54px;
+      height: 32px;
+      background-color: #2c2c2c;
+      border: 1px solid #555;
+      color: #e0e0e0;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .fps-button.active {
+      background-color: #3498db;
+      border-color: #3498db;
+      color: white;
+    }
+    
+    .file-input-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background-color: #1e1e1e;
+      border: 2px dashed #555;
+      border-radius: 8px;
+      padding: 20px 10px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-align: center;
+      margin-bottom: 10px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+    
+    .file-input-container.dragging {
+      border-color: #3498db;
+      background-color: rgba(52, 152, 219, 0.1);
+    }
+    
+    .file-input-container:hover {
+      border-color: #3498db;
+    }
+    
+    .file-input {
+      display: none;
+    }
+    
+    .info-text {
+      color: #aaa;
+      margin-top: 8px;
+      font-size: 0.9em;
+    }
+    
+    .qr-display {
+      width: 80%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      background-color: #1e1e1e;
+      border-radius: 8px;
+    }
+    
+    .qr-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+      aspect-ratio: 1/1;
+    }
+    
+    .qr-code {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      max-width: min(80vh, 80vw);
+      max-height: min(80vh, 80vw);
+      aspect-ratio: 1/1;
+    }
+    
+    .qr-code svg {
+      width: 100%;
+      height: 100%;
+      background-color: white;
+      border-radius: 8px;
+      aspect-ratio: 1/1;
+    }
+    
+    .collapsible {
+      background-color: #1e1e1e;
+      border-radius: 8px;
+      margin-top: 10px;
+      overflow: hidden;
+      margin-bottom: 10px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+    
+    .collapsible-header {
+      padding: 10px 15px;
+      background-color: #2c2c2c;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .collapsible-content {
+      padding: 15px;
+      display: block;
+    }
+    
+    .info-grid {
+      display: grid;
+      grid-template-columns: 100px 1fr;
+      gap: 8px;
+      font-family: monospace;
+      font-size: 14px;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    
+    .info-label {
+      color: #aaa;
+    }
+    
+    .hidden {
+      display: none;
+    }
+    
+    .button {
+      padding: 10px 20px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background-color 0.2s;
+    }
+    
+    .button:hover {
+      background-color: #2980b9;
+    }
+    
+    .button:disabled {
+      background-color: #555;
+      cursor: not-allowed;
+    }
+
+    .dropzone-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      display: none;
+    }
+
+    .dropzone-content {
+      background-color: transparent;
+      border: 4px dashed white;
+      border-radius: 8px;
+      width: 80%;
+      height: 80%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .dropzone-message {
+      color: white;
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    .progress-info {
+      color: #3498db;
+      font-weight: bold;
+    }
+
+    .error-info {
+      color: #e74c3c;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>QR Code Streaming Generator</h1>
+  
+  <div class="main-layout">
+    <div class="container">
+      <div id="file-input-area" class="file-input-container">
+        <p>Click to select a file or drag and drop</p>
+        <p class="info-text">Any file type supported</p>
+        <input type="file" id="file-input" class="file-input">
+      </div>
+      
+      <div class="control-item">
+        <label for="slice-size">Block Size (bytes):</label>
+        <input type="number" id="slice-size" min="100" max="800" value="400">
+        <p class="info-text">Recommended: 300-500 for best QR compatibility</p>
+      </div>
+      
+      <div class="control-item">
+        <label for="fps-input">FPS:</label>
+        <div class="fps-control">
+          <div class="fps-buttons">
+            <div class="fps-row">
+              <button class="fps-button" data-fps="5">5 Hz</button>
+              <button class="fps-button" data-fps="10">10 Hz</button>
+            </div>
+            <div class="fps-row">
+              <button class="fps-button" data-fps="15">15 Hz</button>
+              <button class="fps-button active" data-fps="20">20 Hz</button>
+            </div>
+          </div>
+          <input type="number" id="fps-input" min="1" max="60" step="1" value="20">
+        </div>
+      </div>
+      
+      <div class="collapsible">
+        <div class="collapsible-header" id="info-header">
+          <span>Transmission Information</span>
+          <span>▼</span>
+        </div>
+        <div class="collapsible-content" id="info-content">
+          <div class="info-grid">
+            <span class="info-label">Block:</span>
+            <span id="block-indices">-</span>
+            
+            <span class="info-label">Total Blocks:</span>
+            <span id="block-total">-</span>
+            
+            <span class="info-label">Data Size:</span>
+            <span id="block-bytes">-</span>
+            
+            <span class="info-label">Compressed:</span>
+            <span id="compressed-size">-</span>
+            
+            <span class="info-label">Bitrate:</span>
+            <span id="block-bitrate">-</span>
+            
+            <span class="info-label">Frame:</span>
+            <span id="frame-count">-</span>
+            
+            <span class="info-label">Actual FPS:</span>
+            <span id="actual-fps">-</span>
+            
+            <span class="info-label">Progress:</span>
+            <span id="transmission-progress" class="progress-info">-</span>
+            
+            <span class="info-label">Filename:</span>
+            <span id="file-name">-</span>
+            
+            <span class="info-label">Type:</span>
+            <span id="content-type">-</span>
+            
+            <span class="info-label">Checksum:</span>
+            <span id="file-checksum">-</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="qr-display">
+      <div class="qr-container">
+        <div id="qr-code" class="qr-code">
+          <div style="color: #666; text-align: center;">
+            <p>Select a file to start transmission</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dropzone-overlay" id="dropzone-overlay">
+    <div class="dropzone-content">
+      <div class="dropzone-message">Drop File Here</div>
+    </div>
+  </div>
+
+  <!-- External libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+
+  <script>
+    // CRC32 implementation
+    const crc32Table = new Uint32Array(256);
+    (function() {
+      for (let i = 0; i < 256; i++) {
+        let crc = i;
+        for (let j = 0; j < 8; j++) {
+          crc = (crc & 1) ? (0xEDB88320 ^ (crc >>> 1)) : (crc >>> 1);
+        }
+        crc32Table[i] = crc;
+      }
+    })();
+
+    /**
+     * Calculate CRC32 checksum
+     * @param {Uint8Array} data - Data to calculate checksum for
+     * @param {number} k - Number of blocks
+     * @returns {number} - Checksum
+     */
+    function getChecksum(data, k) {
+      let crc = 0xFFFFFFFF;
+      for (let i = 0; i < data.length; i++) {
+        crc = crc32Table[(crc ^ data[i]) & 0xFF] ^ (crc >>> 8);
+      }
+      return (crc ^ 0xFFFFFFFF) ^ k;
+    }
+
+    /**
+     * Robust soliton distribution for better performance
+     * @param {number} k - Number of blocks
+     * @returns {number} - Selected degree
+     */
+    function getRobustSolitonDegree(k) {
+      const c = 0.1; // constant
+      const delta = 0.05; // failure probability
+      const R = c * Math.log(k / delta) * Math.sqrt(k);
+      
+      // Calculate tau function
+      const tau = (d) => {
+        if (d < k / R) {
+          return R / (d * k);
+        } else if (d === Math.floor(k / R)) {
+          return R * Math.log(R / delta) / k;
+        } else {
+          return 0;
+        }
+      };
+      
+      // Calculate robust distribution
+      const probabilities = [];
+      let sum = 0;
+      
+      for (let d = 1; d <= k; d++) {
+        let prob = 0;
+        if (d === 1) {
+          prob = 1 / k;
+        } else {
+          prob = 1 / (d * (d - 1));
+        }
+        prob += tau(d);
+        probabilities.push(prob);
+        sum += prob;
+      }
+      
+      // Normalize probabilities
+      for (let i = 0; i < probabilities.length; i++) {
+        probabilities[i] /= sum;
+      }
+      
+      // Generate cumulative distribution
+      const cumulative = [];
+      let cumulativeSum = 0;
+      for (const p of probabilities) {
+        cumulativeSum += p;
+        cumulative.push(cumulativeSum);
+      }
+      
+      // Select degree based on random value
+      const random = Math.random();
+      for (let i = 0; i < cumulative.length; i++) {
+        if (random <= cumulative[i]) {
+          return i + 1;
+        }
+      }
+      
+      return k;
+    }
+
+    /**
+     * Generate random indices for the given degree
+     * @param {number} k - Total number of blocks
+     * @param {number} degree - Number of indices to select
+     * @returns {number[]} - Selected indices
+     */
+    function getRandomIndices(k, degree) {
+      const indices = new Set();
+      while (indices.size < degree) {
+        indices.add(Math.floor(Math.random() * k));
+      }
+      return Array.from(indices).sort((a, b) => a - b);
+    }
+
+    /**
+     * Luby Transform Encoder
+     */
+    class LtEncoder {
+      constructor(data, blockSize, compress = true) {
+        this.originalData = data;
+        this.blockSize = blockSize;
+        this.compress = compress;
+        
+        // Add file metadata
+        const metadata = {
+          originalSize: data.length,
+          timestamp: Date.now()
+        };
+        
+        const metadataStr = JSON.stringify(metadata);
+        const metadataBytes = new TextEncoder().encode(metadataStr);
+        const metadataLength = new Uint32Array([metadataBytes.length]);
+        
+        // Combine metadata length + metadata + data
+        const dataWithMeta = new Uint8Array(4 + metadataBytes.length + data.length);
+        dataWithMeta.set(new Uint8Array(metadataLength.buffer), 0);
+        dataWithMeta.set(metadataBytes, 4);
+        dataWithMeta.set(data, 4 + metadataBytes.length);
+        
+        // Compress if needed
+        this.processedData = compress ? pako.deflate(dataWithMeta) : dataWithMeta;
+        
+        // Split into blocks
+        this.blocks = [];
+        for (let i = 0; i < this.processedData.length; i += blockSize) {
+          const block = new Uint8Array(blockSize);
+          const slice = this.processedData.slice(i, i + blockSize);
+          block.set(slice);
+          this.blocks.push(block);
+        }
+        
+        this.k = this.blocks.length;
+        this.bytes = this.processedData.length;
+        this.checksum = getChecksum(this.originalData, this.k);
+        
+        console.log(`Encoder initialized: ${this.k} blocks, ${this.bytes} bytes compressed`);
+      }
+
+      /**
+       * Create an encoded block
+       * @param {number[]} indices - Indices to combine
+       * @returns {Object} - Encoded block
+       */
+      createBlock(indices) {
+        const data = new Uint8Array(this.blockSize);
+        
+        for (const index of indices) {
+          if (index < this.blocks.length) {
+            for (let i = 0; i < this.blockSize; i++) {
+              data[i] ^= this.blocks[index][i];
+            }
+          }
+        }
+        
+        return {
+          k: this.k,
+          bytes: this.bytes,
+          checksum: this.checksum,
+          indices: indices,
+          data: data
+        };
+      }
+
+      /**
+       * Generator that produces infinite encoded blocks
+       */
+      *fountain() {
+        let blockCount = 0;
+        while (true) {
+          const degree = getRobustSolitonDegree(this.k);
+          const indices = getRandomIndices(this.k, degree);
+          blockCount++;
+          
+          const block = this.createBlock(indices);
+          block.blockNumber = blockCount;
+          
+          yield block;
+        }
+      }
+    }
+
+    /**
+     * Convert block to binary format
+     * @param {Object} block - Block to convert
+     * @returns {Uint8Array} - Binary data
+     */
+    function blockToBinary(block) {
+      const { k, bytes, checksum, indices, data } = block;
+      
+      // Create header: [indices_length, ...indices, k, bytes, checksum]
+      const header = new Uint32Array(1 + indices.length + 3);
+      header[0] = indices.length;
+      
+      for (let i = 0; i < indices.length; i++) {
+        header[1 + i] = indices[i];
+      }
+      
+      header[1 + indices.length] = k;
+      header[1 + indices.length + 1] = bytes;
+      header[1 + indices.length + 2] = checksum;
+      
+      // Combine header and data
+      const binary = new Uint8Array(header.length * 4 + data.length);
+      binary.set(new Uint8Array(header.buffer), 0);
+      binary.set(data, header.length * 4);
+      
+      return binary;
+    }
+
+    /**
+     * Convert Uint8Array to Base64
+     * @param {Uint8Array} data - Data to convert
+     * @returns {string} - Base64 string
+     */
+    function uint8ArrayToBase64(data) {
+      let binary = '';
+      for (let i = 0; i < data.length; i++) {
+        binary += String.fromCharCode(data[i]);
+      }
+      return btoa(binary);
+    }
+
+    /**
+     * Generate QR code SVG
+     * @param {string} data - Data to encode
+     * @param {Object} options - QR code options
+     * @returns {string} - SVG string
+     */
+    function generateQRCodeSVG(data, options = {}) {
+      try {
+        const qr = qrcode(0, options.ecLevel || 'M');
+        qr.addData(data);
+        qr.make();
+        
+        const cellSize = options.cellSize || 4;
+        const margin = options.border || 4;
+        const svgString = qr.createSvgTag(cellSize, margin);
+        
+        // Make SVG responsive
+        const parser = new DOMParser();
+        const svgDoc = parser.parseFromString(svgString, "image/svg+xml");
+        const svgElement = svgDoc.documentElement;
+        
+        svgElement.removeAttribute("width");
+        svgElement.removeAttribute("height");
+        svgElement.setAttribute("preserveAspectRatio", "xMidYMid meet");
+        
+        return new XMLSerializer().serializeToString(svgElement);
+      } catch (error) {
+        console.error('QR code generation failed:', error);
+        throw error;
+      }
+    }
+
+    /**
+     * Format bytes to human readable string
+     * @param {number} bytes - Number of bytes
+     * @returns {string} - Formatted string
+     */
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // UI controller
+    document.addEventListener('DOMContentLoaded', () => {
+      // UI elements
+      const fileInputArea = document.getElementById('file-input-area');
+      const fileInput = document.getElementById('file-input');
+      const sliceSizeInput = document.getElementById('slice-size');
+      const fpsInput = document.getElementById('fps-input');
+      const fpsButtons = document.querySelectorAll('.fps-button');
+      const qrCodeElement = document.getElementById('qr-code');
+      const dropzoneOverlay = document.getElementById('dropzone-overlay');
+      const infoHeader = document.getElementById('info-header');
+      const infoContent = document.getElementById('info-content');
+      
+      // Info display elements
+      const blockIndicesElement = document.getElementById('block-indices');
+      const blockTotalElement = document.getElementById('block-total');
+      const blockBytesElement = document.getElementById('block-bytes');
+      const compressedSizeElement = document.getElementById('compressed-size');
+      const blockBitrateElement = document.getElementById('block-bitrate');
+      const frameCountElement = document.getElementById('frame-count');
+      const actualFpsElement = document.getElementById('actual-fps');
+      const transmissionProgressElement = document.getElementById('transmission-progress');
+      const fileNameElement = document.getElementById('file-name');
+      const contentTypeElement = document.getElementById('content-type');
+      const fileChecksumElement = document.getElementById('file-checksum');
+      
+      // State variables
+      let encoder = null;
+      let generator = null;
+      let animationFrameId = null;
+      let frameCount = 0;
+      let lastFrameTime = 0;
+      let currentBlock = null;
+      let currentFps = 20;
+      let isTransmitting = false;
+      
+      // File input handlers
+      fileInputArea.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', handleFileSelect);
+      
+      // FPS control handlers
+      fpsButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          fpsButtons.forEach(btn => btn.classList.remove('active'));
+          button.classList.add('active');
+          currentFps = parseInt(button.dataset.fps);
+          fpsInput.value = currentFps;
+        });
+      });
+      
+      fpsInput.addEventListener('change', () => {
+        let fps = parseInt(fpsInput.value);
+        if (isNaN(fps) || fps < 1 || fps > 60) {
+          fps = 20;
+          fpsInput.value = 20;
+        }
+        currentFps = fps;
+        
+        fpsButtons.forEach(btn => {
+          btn.classList.remove('active');
+          if (parseInt(btn.dataset.fps) === fps) {
+            btn.classList.add('active');
+          }
+        });
+      });
+      
+      // Drag and drop handlers
+      let dragCounter = 0;
+      
+      document.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        dragCounter++;
+        dropzoneOverlay.style.display = 'flex';
+      });
+      
+      document.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dragCounter--;
+        if (dragCounter === 0) {
+          dropzoneOverlay.style.display = 'none';
+        }
+      });
+      
+      document.addEventListener('dragover', (e) => e.preventDefault());
+      
+      document.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dragCounter = 0;
+        dropzoneOverlay.style.display = 'none';
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          handleFile(files[0]);
+        }
+      });
+      
+      // Info panel toggle
+      infoHeader.addEventListener('click', () => {
+        const isHidden = infoContent.style.display === 'none';
+        infoContent.style.display = isHidden ? 'block' : 'none';
+        infoHeader.querySelector('span:last-child').textContent = isHidden ? '▲' : '▼';
+      });
+      
+      /**
+       * Handle file selection
+       */
+      function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (file) {
+          handleFile(file);
+        }
+      }
+      
+      /**
+       * Process the selected file
+       */
+      async function handleFile(file) {
+        try {
+          // Stop any existing transmission
+          stopTransmission();
+          
+          // Reset UI
+          resetUI();
+          
+          // Update file info
+          fileNameElement.textContent = file.name;
+          contentTypeElement.textContent = file.type || 'application/octet-stream';
+          
+          // Read file
+          const arrayBuffer = await file.arrayBuffer();
+          const data = new Uint8Array(arrayBuffer);
+          
+          // Create encoder
+          const blockSize = parseInt(sliceSizeInput.value);
+          encoder = new LtEncoder(data, blockSize, true);
+          generator = encoder.fountain();
+          
+          // Update UI with encoder info
+          blockTotalElement.textContent = encoder.k;
+          blockBytesElement.textContent = formatBytes(data.length);
+          compressedSizeElement.textContent = formatBytes(encoder.bytes);
+          fileChecksumElement.textContent = encoder.checksum.toString(16).toUpperCase();
+          
+          // Start transmission
+          startTransmission();
+          
+        } catch (error) {
+          console.error('Error processing file:', error);
+          showError(`Error processing file: ${error.message}`);
+        }
+      }
+      
+      /**
+       * Start QR code transmission
+       */
+      function startTransmission() {
+        if (!generator) return;
+        
+        isTransmitting = true;
+        frameCount = 0;
+        lastFrameTime = performance.now();
+        
+        transmissionLoop();
+      }
+      
+      /**
+       * Stop transmission
+       */
+      function stopTransmission() {
+        if (animationFrameId) {
+          cancelAnimationFrame(animationFrameId);
+          animationFrameId = null;
+        }
+        isTransmitting = false;
+      }
+      
+      /**
+       * Main transmission loop
+       */
+      function transmissionLoop() {
+        if (!isTransmitting) return;
+        
+        const now = performance.now();
+        const frameInterval = 1000 / currentFps;
+        
+        if (now - lastFrameTime >= frameInterval) {
+          try {
+            // Generate new block
+            currentBlock = generator.next().value;
+            frameCount++;
+            
+            // Convert to QR code data
+            const binary = blockToBinary(currentBlock);
+            const base64 = uint8ArrayToBase64(binary);
+            
+            // Check data size (QR codes have limits)
+            if (base64.length > 2000) {
+              console.warn(`Block data too large: ${base64.length} characters`);
+            }
+            
+            // Generate QR code
+            const svg = generateQRCodeSVG(base64, { ecLevel: 'M' });
+            qrCodeElement.innerHTML = svg;
+            
+            // Update info display
+            updateInfoDisplay(now - lastFrameTime);
+            
+            lastFrameTime = now;
+            
+          } catch (error) {
+            console.error('Transmission error:', error);
+            showError(`Transmission error: ${error.message}`);
+          }
+        }
+        
+        animationFrameId = requestAnimationFrame(transmissionLoop);
+      }
+      
+      /**
+       * Update information display
+       */
+      function updateInfoDisplay(renderTime) {
+        if (!currentBlock) return;
+        
+        const actualFps = 1000 / renderTime;
+        const bitrate = (currentBlock.data.length * actualFps * 8) / 1000; // kbps
+        const redundancy = (frameCount / currentBlock.k) * 100;
+        
+        blockIndicesElement.textContent = `[${currentBlock.indices.join(', ')}] (deg: ${currentBlock.indices.length})`;
+        frameCountElement.textContent = `${frameCount} / ${Math.ceil(currentBlock.k * 1.2)}`;
+        actualFpsElement.textContent = actualFps.toFixed(1);
+        blockBitrateElement.textContent = `${bitrate.toFixed(1)} kbps`;
+        
+        // Show transmission progress
+        if (redundancy >= 100) {
+          transmissionProgressElement.textContent = `${redundancy.toFixed(1)}% (Redundant transmission)`;
+          transmissionProgressElement.className = 'progress-info';
+        } else {
+          transmissionProgressElement.textContent = `${redundancy.toFixed(1)}% (Initial transmission)`;
+          transmissionProgressElement.className = '';
+        }
+      }
+      
+      /**
+       * Reset UI to initial state
+       */
+      function resetUI() {
+        frameCount = 0;
+        currentBlock = null;
+        
+        blockIndicesElement.textContent = '-';
+        blockTotalElement.textContent = '-';
+        blockBytesElement.textContent = '-';
+        compressedSizeElement.textContent = '-';
+        blockBitrateElement.textContent = '-';
+        frameCountElement.textContent = '-';
+        actualFpsElement.textContent = '-';
+        transmissionProgressElement.textContent = '-';
+        fileNameElement.textContent = '-';
+        contentTypeElement.textContent = '-';
+        fileChecksumElement.textContent = '-';
+        
+        qrCodeElement.innerHTML = `
+          <div style="color: #666; text-align: center;">
+            <p>Processing file...</p>
+          </div>
+        `;
+      }
+      
+      /**
+       * Show error message
+       */
+      function showError(message) {
+        transmissionProgressElement.textContent = message;
+        transmissionProgressElement.className = 'error-info';
+        
+        qrCodeElement.innerHTML = `
+          <div style="color: #e74c3c; text-align: center;">
+            <p>Error: ${message}</p>
+          </div>
+        `;
+      }
+    });
+  </script>
+</body>
+</html>
