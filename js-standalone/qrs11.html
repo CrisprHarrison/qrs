@@ -314,7 +314,7 @@
       
       <div class="control-item">
         <label for="slice-size">Slice Size:</label>
-        <input type="number" id="slice-size" min="100" max="2000" value="1000">
+        <input type="number" id="slice-size" min="100" max="2000" value="500">
       </div>
       
       <div class="control-item">
@@ -323,14 +323,14 @@
           <div class="fps-buttons">
             <div class="fps-row">
               <button class="fps-button" data-fps="5">5 Hz</button>
-              <button class="fps-button active" data-fps="10">10 Hz</button>
+              <button class="fps-button" data-fps="10">10 Hz</button>
             </div>
             <div class="fps-row">
               <button class="fps-button" data-fps="15">15 Hz</button>
-              <button class="fps-button" data-fps="20">20 Hz</button>
+              <button class="fps-button active" data-fps="20">20 Hz</button>
             </div>
           </div>
-          <input type="number" id="fps-input" min="1" max="60" step="1" value="10">
+          <input type="number" id="fps-input" min="1" max="60" step="1" value="20">
         </div>
       </div>
       
@@ -792,8 +792,8 @@
         
         // Validate fps value
         if (isNaN(fps) || fps < 1 || fps > 60 || !Number.isInteger(fps)) {
-          fps = 10;
-          fpsInput.value = 10;
+          fps = 20;
+          fpsInput.value = 20;
         }
         
         currentFps = fps;
